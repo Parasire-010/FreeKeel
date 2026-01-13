@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset-"utf-8"
+    <title>FreeKeel</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header>
+      <h1>FreeKeel</h1>
+      <div class="controls">
+        <input id="fileInput" type="file" accept="application/pdf">
+        <button id="textMode">Text</button>
+        <button id="drawMode">Draw</button>
+        <button id="undoBtn">Undo</button>
+        <button id="saveBtn">Save</button>
+      </div>
+    </header>
+    <main>
+      <div id="dropOverlay">Drop PDF here</div>
+      <div id="viewer"></div>
+    </main>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
