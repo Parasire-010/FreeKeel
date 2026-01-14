@@ -91,12 +91,30 @@ async function loadFile(file) {
 
 // Render PDF with PDF.js, build an annotation layer per page
 async function renderPdf(bytes) {
-  viewer.innerHTML = "";
-  pages = [];
+    try {
+          viewer.innerHTML = "";
+    pages = [];
 
-  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+    const loadingTask = pdfjsLib.getDocument({ data: bytes });
 
-  for (let i = 0; i < pdf.numPages; i++) {
+    // Handle password-protected PDFs
+    loadingTask.onPassword = (updatePassword, reason) => {
+      const msg = (reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD)
+        ? "Incorrect password. Try again:"
+        : "This PDF is password protected. Enter password:";
+
+      const pw = prompt(msg, "");
+      if (pw === null) {
+        // user cancelled
+        throw new Error("Password entry cancelled.");
+      }
+      updatePassword(pw);
+    };
+
+    const pdf = await loadingTask.promise;
+
+
+      for (let i = 0; i < pdf.numPages; i++) {
     const page = await pdf.getPage(i + 1);
     const viewport = page.getViewport({ scale: 1.5 });
 
@@ -131,6 +149,10 @@ async function renderPdf(bytes) {
 
   // After re-rendering, redraw current annotations (if any)
   redraw();
+        } catch (err) {
+    console.error("PDF load/render failed:", err);
+    alert("Could not open that PDF. Check Console (F12) for details.\n\n" + (err?.message || err));
+  }
 }
 
 // Wire interaction handlers for a page's annotation layer
