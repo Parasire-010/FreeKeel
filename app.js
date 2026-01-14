@@ -20,8 +20,7 @@ let history = [];           // undo stack
 
 // PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc =
-  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js//3.11.174pdf.worker.min.js";
-
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 // Mode buttons
 textModeBtn.onclick = () => (mode = "text");
 drawModeBtn.onclick = () => (mode = "draw");
