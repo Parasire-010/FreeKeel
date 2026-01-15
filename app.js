@@ -177,127 +177,123 @@ function wire(canvas, ctx, pageIndex) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    annotations.push({ type: "text", pageIndex, x, y, text, size: 18 });
-    redraw();
-  });
-
-    annotations.push({ type: "text", pageIndex, x, y, text, size: parseInt(textSizeInput.value) || 18, color: textColorInput.value });  // UPDATED: Custom size and color    if (mode !== "draw" && mode !== "eraser") return;  // UPDATED: Allow eraser mode
-    pushHistory();
-
-    drawing = true;
-    stroke = { type: "stroke", pageIndex, points: [], width: parseInt(lineWidthInput.value) || 2, color: mode === "eraser" ? "#FFFFFF" : drawColorInput.value };  // UPDATED: Custom width, color, eraser uses white    annotations.push(stroke);
-
-    const rect = canvas.getBoundingClientRect();
-    stroke.points.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  });
-
-  canvas.addEventListener("mousemove", (e) => {
-    if (!drawing || mode !== "draw") return;
-
-    const rect = canvas.getBoundingClientRect();
-    stroke.points.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-    if (!drawing || (mode !== "draw" && mode !== "eraser")) return;  // UPDATED: Allow eraser mode    // For speed, we redraw. Later, we can do incremental drawing.
-    redraw();
-  });
-
-  window.addEventListener("mouseup", () => {
-    drawing = false;
-    stroke = null;
-  });
-}
+    annotations.push({ type: "text", pageIndex, x, y, text, size: parseInt(textSizeInput.value) || 18, color: textColorInput.value });  // UPDATED: Custom size and color    redraw();
+  })
+    
+      canvas.addEventListener("mousedown", (e) => {
+            if (mode !== "draw" && mode !== "eraser") return;  // UPDATED: Allow eraser mode
+            pushHistory();
+            drawing = true;
+            stroke = { type: "stroke", pageIndex, points: [], width: parseInt(lineWidthInput.value) || 2, color: mode === "eraser" ? "#FFFFFF" : drawColorInput.value };  // UPDATED: Custom width, color, eraser uses white
+            annotations.push(stroke);
+            const rect = canvas.getBoundingClientRect();
+            stroke.points.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+          });
+  
+    canvas.addEventListener("mousemove", (e) => {
+          if (!drawing || (mode !== "draw" && mode !== "eraser")) return;  // UPDATED: Allow eraser mode
+          const rect = canvas.getBoundingClientRect();
+          stroke.points.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+          redraw();
+        });
+  
+    window.addEventListener("mouseup", () => {
+          drawing = false;
+          stroke = null;
+        });
+  }
 
 // Redraw all annotations onto all pages' annotation canvases
 function redraw() {
-  pages.forEach((p) => p.annoCtx.clearRect(0, 0, p.anno.width, p.anno.height));
-
-  for (const a of annotations) {
-    const p = pages[a.pageIndex];
-    if (!p) continue;
-
-    if (a.type === "text") {
-      p.annoCtx.fillStyle = "yellow";
-      p.annoCtx.font = `${a.size || 18}px Arial`;
-      p.annoCtx.fillText(a.text, a.x, a.y);
-    }
-      octx.fillStyle = a.color || "yellow";  // UPDATED: Use annotation color    if (a.type === "stroke") {
-      p.annoCtx.strokeStyle = "lime";
-      p.annoCtx.lineWidth = a.width || 2;
-      p.annoCtx.beginPath();
-      a.points.forEach((pt, i) => {
-      octx.strokeStyle = a.color || "lime";  // UPDATED: Use annotation color        else p.annoCtx.lineTo(pt.x, pt.y);
-      });
-      p.annoCtx.stroke();
-    }
+    pages.forEach((p) => p.annoCtx.clearRect(0, 0, p.anno.width, p.anno.height));
+    for (const a of annotations) {
+          const p = pages[a.pageIndex];
+          if (!p) continue;
+      
+          if (a.type === "text") {
+                  p.annoCtx.fillStyle = a.color || "yellow";  // UPDATED: Use annotation color
+                  p.annoCtx.font = `${a.size || 18}px Arial`;
+                  p.annoCtx.fillText(a.text, a.x, a.y);
+                }
+      
+          if (a.type === "stroke") {
+                  p.annoCtx.strokeStyle = a.color || "lime";  // UPDATED: Use annotation color
+                  p.annoCtx.lineWidth = a.width || 2;
+                  p.annoCtx.beginPath();
+                  a.points.forEach((pt, i) => {
+                            if (i === 0) p.annoCtx.moveTo(pt.x, pt.y);
+                            else p.annoCtx.lineTo(pt.x, pt.y);
+                          });
+                  p.annoCtx.stroke();
+                }
+        }
   }
-}
 
 // Undo stack helpers
 function pushHistory() {
-  history.push(structuredClone(annotations));
-  if (history.length > 50) history.shift();
-}
+    history.push(structuredClone(annotations));
+    if (history.length > 50) history.shift();
+  }
 
 function undo() {
-  if (!history.length) return;
-  annotations = history.pop();
-  redraw();
-}
+    if (!history.length) return;
+    annotations = history.pop();
+    redraw();
+  }
 
 // Save flattened PDF with pdf-lib
 async function savePdf() {
-  if (!pdfBytes) return alert("Load a PDF first.");
+    if (!pdfBytes) return alert("Load a PDF first.");
+  
+    const bytesForLib = pdfBytes instanceof Uint8Array ? pdfBytes : new Uint8Array(pdfBytes);
+    const pdfDoc = await PDFLib.PDFDocument.load(bytesForLib);
+    const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+  
+    for (const a of annotations) {
+          const page = pdfDoc.getPage(a.pageIndex);
+          if (!page) continue;
+          const { width, height } = page.getSize();
+          const canvas = pages[a.pageIndex]?.anno;
+          if (!canvas) continue;
+          const sx = width / canvas.width;
+          const sy = height / canvas.height;
+      
+          if (a.type === "text") {
+                  const size = a.size || 18;
+                  page.drawText(a.text, {
+                            x: a.x * sx,
+                            y: height - (a.y * sy) - size,
+                            size,
+                            font,
+                            color: PDFLib.rgb(1, 1, 0)
+                                    });
+                }
+      
+          if (a.type === "stroke") {
+                  const thickness = a.width || 2;
+                  for (let i = 1; i < a.points.length; i++) {
+                            const p1 = a.points[i - 1];
+                            const p2 = a.points[i];
+                            page.drawLine({
+                                        start: { x: p1.x * sx, y: height - p1.y * sy },
+                                        end: { x: p2.x * sx, y: height - p2.y * sy },
+                                        thickness,
+                                        color: PDFLib.rgb(0, 1, 0)
+                                                  });
+                          }
+                }
+        }
+  
+    const out = await pdfDoc.save();
+    const blob = new Blob([out], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+  
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "edited.pdf";
+    link.click();
+  
+    URL.revokeObjectURL(url);
+  };
 
-  // Ensure bytes are Uint8Array for pdf-lib load
-  const bytesForLib = pdfBytes instanceof Uint8Array ? pdfBytes : new Uint8Array(pdfBytes);
 
-  const pdfDoc = await PDFLib.PDFDocument.load(bytesForLib);
-  const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-
-  for (const a of annotations) {
-    const page = pdfDoc.getPage(a.pageIndex);
-    if (!page) continue;
-
-    const { width, height } = page.getSize();
-    const canvas = pages[a.pageIndex]?.anno;
-    if (!canvas) continue;
-
-    const sx = width / canvas.width;
-    const sy = height / canvas.height;
-
-    if (a.type === "text") {
-      const size = a.size || 18;
-      page.drawText(a.text, {
-        x: a.x * sx,
-        y: height - (a.y * sy) - size,
-        size,
-        font,
-        color: PDFLib.rgb(1, 1, 0)
-      });
-    }
-
-    if (a.type === "stroke") {
-      const thickness = a.width || 2;
-      for (let i = 1; i < a.points.length; i++) {
-        const p1 = a.points[i - 1];
-        const p2 = a.points[i];
-        page.drawLine({
-          start: { x: p1.x * sx, y: height - p1.y * sy },
-          end: { x: p2.x * sx, y: height - p2.y * sy },
-          thickness,
-          color: PDFLib.rgb(0, 1, 0)
-        });
-      }
-    }
-  }
-
-  const out = await pdfDoc.save();
-  const blob = new Blob([out], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
-
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "edited.pdf";
-  link.click();
-
-  URL.revokeObjectURL(url);
-}
