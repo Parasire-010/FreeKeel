@@ -9,6 +9,11 @@ const dropOverlay = document.getElementById("dropOverlay");
 const newBtn = document.getElementById("newBtn");
 const textModeBtn = document.getElementById("textMode");
 const drawModeBtn = document.getElementById("drawMode");
+const eraserModeBtn = document.getElementById("eraserMode");  // UPDATED: Added eraser button
+const textColorInput = document.getElementById("textColor");  // UPDATED: Added text color picker
+const textSizeInput = document.getElementById("textSize");  // UPDATED: Added text size control
+const drawColorInput = document.getElementById("drawColor");  // UPDATED: Added draw color picker
+const lineWidthInput = document.getElementById("lineWidth");  // UPDATED: Added line width control
 const undoBtn = document.getElementById("undoBtn");
 const saveBtn = document.getElementById("saveBtn");
 
@@ -24,6 +29,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 // Mode buttons
 textModeBtn.onclick = () => (mode = "text");
 drawModeBtn.onclick = () => (mode = "draw");
+eraserModeBtn.onclick = () => (mode = "eraser");  // UPDATED: Added eraser mode
 
 // Actions
 undoBtn.onclick = undo;
@@ -175,14 +181,11 @@ function wire(canvas, ctx, pageIndex) {
     redraw();
   });
 
-  canvas.addEventListener("mousedown", (e) => {
-    if (mode !== "draw") return;
-
+    annotations.push({ type: "text", pageIndex, x, y, text, size: parseInt(textSizeInput.value) || 18, color: textColorInput.value });  // UPDATED: Custom size and color    if (mode !== "draw" && mode !== "eraser") return;  // UPDATED: Allow eraser mode
     pushHistory();
 
     drawing = true;
-    stroke = { type: "stroke", pageIndex, points: [], width: 2 };
-    annotations.push(stroke);
+    stroke = { type: "stroke", pageIndex, points: [], width: parseInt(lineWidthInput.value) || 2, color: mode === "eraser" ? "#FFFFFF" : drawColorInput.value };  // UPDATED: Custom width, color, eraser uses white    annotations.push(stroke);
 
     const rect = canvas.getBoundingClientRect();
     stroke.points.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
@@ -193,8 +196,7 @@ function wire(canvas, ctx, pageIndex) {
 
     const rect = canvas.getBoundingClientRect();
     stroke.points.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-
-    // For speed, we redraw. Later, we can do incremental drawing.
+    if (!drawing || (mode !== "draw" && mode !== "eraser")) return;  // UPDATED: Allow eraser mode    // For speed, we redraw. Later, we can do incremental drawing.
     redraw();
   });
 
@@ -217,14 +219,12 @@ function redraw() {
       p.annoCtx.font = `${a.size || 18}px Arial`;
       p.annoCtx.fillText(a.text, a.x, a.y);
     }
-
-    if (a.type === "stroke") {
+      octx.fillStyle = a.color || "yellow";  // UPDATED: Use annotation color    if (a.type === "stroke") {
       p.annoCtx.strokeStyle = "lime";
       p.annoCtx.lineWidth = a.width || 2;
       p.annoCtx.beginPath();
       a.points.forEach((pt, i) => {
-        if (i === 0) p.annoCtx.moveTo(pt.x, pt.y);
-        else p.annoCtx.lineTo(pt.x, pt.y);
+      octx.strokeStyle = a.color || "lime";  // UPDATED: Use annotation color        else p.annoCtx.lineTo(pt.x, pt.y);
       });
       p.annoCtx.stroke();
     }
